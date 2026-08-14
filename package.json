@@ -2,11 +2,46 @@
   "name": "dsh-desktop",
   "private": true,
   "version": "0.0.0",
+  "description": "A community-maintained desktop client for @deepseek-ai/dsh - wrap the dsh Web UI in a native window, no Node.js or Bun required for end users.",
   "type": "module",
+  "author": {
+    "name": "MonshinYu",
+    "email": "MonshinYu@users.noreply.github.com",
+    "url": "https://github.com/MonshinYu"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/MonshinYu/dsh-desktop#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MonshinYu/dsh-desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MonshinYu/dsh-desktop/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "dsh",
+    "deepseek-harness",
+    "desktop",
+    "electron",
+    "tauri",
+    "bun",
+    "rust",
+    "ai",
+    "cli",
+    "agent",
+    "open-source"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder -mwl",
-    "preview": "vite preview"
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:current": "tsc && vite build && electron-builder",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "release": "npm run build && electron-builder --publish always"
   },
   "devDependencies": {
     "typescript": "^5.2.2",

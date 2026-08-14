@@ -1,0 +1,98 @@
+name: Bug Report
+description: 报告一个 DSH Desktop 的 Bug
+title: '[Bug] '
+labels: ['bug', 'needs-triage']
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你提交 Bug！请尽可能详细地填写以下信息，帮助我们快速复现和定位问题。
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 操作系统
+      description: 您当前使用的操作系统
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: DSH Desktop 版本
+      description: 在「关于」对话框或 release 标签中查看
+      placeholder: '0.0.0'
+    validations:
+      required: true
+
+  - type: input
+    id: dsh-version
+    attributes:
+      label: @deepseek-ai/dsh 版本
+      description: 可在终端运行 `bunx dsh --version` 或 `npx -y @deepseek-ai/dsh --version` 查看
+      placeholder: '0.1.0-rc.6'
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 描述问题
+      description: 清晰简洁地描述发生了什么
+      placeholder: |
+        启动后点击 ... 时，预期 ...，实际 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 触发该 Bug 的步骤
+      placeholder: |
+        1. 启动 DSH Desktop
+        2. 点击 ... 
+        3. 输入 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 您期望发生什么
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图 / 录屏
+      description: 如果有的话，拖拽上传（截图、录屏、错误日志 ...）
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 错误日志
+      description: |
+        粘贴相关日志：
+        - macOS: `~/Library/Logs/DSH Desktop/dsh-server.log`
+        - Windows: `%APPDATA%\DSH Desktop\logs\dsh-server.log`
+        - Linux: `~/.config/DSH Desktop/logs/dsh-server.log`
+      placeholder: |
+        ```
+        [dsh] starting dsh web on port 3080
+        ...
+        ```
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 自检清单
+      options:
+        - label: 我已经在 [Issues](https://github.com/MonshinYu/dsh-desktop/issues) 中搜索过，没有重复报告
+        - label: 我已附上日志 / 截图辅助排查
+        - label: 我已尝试删除 `userData/dsh` 下的会话数据，问题依旧

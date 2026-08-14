@@ -1,0 +1,28 @@
+name: Question / Help
+description: 提问或寻求帮助
+title: '[Question] '
+labels: ['question']
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: 你的问题
+      description: 尽量清晰描述你遇到的情况、想做什么、卡在哪里
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: 已尝试
+      description: 你已经尝试过哪些方法？结果如何？
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: 操作系统、DSH Desktop 版本、@deepseek-ai/dsh 版本
+      placeholder: |
+        - OS: macOS 15.0
+        - DSH Desktop: 0.0.0
+        - @deepseek-ai/dsh: 0.1.0-rc.6

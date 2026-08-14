@@ -1,25 +1,46 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.deepseek.dsh-desktop",
+  "productName": "DSH Desktop",
+  "copyright": "Copyright © 2026 MonshinYu",
   "asar": true,
   "asarUnpack": [
     "node_modules/**"
   ],
   "npmRebuild": false,
-  "productName": "DSH Desktop",
   "directories": {
-    "output": "release/${version}"
+    "output": "release/${version}",
+    "buildResources": "public"
   },
   "files": [
     "dist",
-    "dist-electron"
+    "dist-electron",
+    "package.json"
   ],
+  "extraMetadata": {
+    "main": "dist-electron/main.js"
+  },
+  "publish": {
+    "provider": "github",
+    "owner": "MonshinYu",
+    "repo": "dsh-desktop",
+    "releaseType": "release"
+  },
   "mac": {
+    "category": "public.app-category.developer-tools",
     "icon": "public/favicon.png",
     "target": [
-      "dmg"
+      "dmg",
+      "zip"
     ],
-    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+    "artifactName": "${productName}-Mac-${version}-Installer.${ext}",
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false,
+    "identity": null
+  },
+  "dmg": {
+    "title": "${productName} ${version}",
+    "writeUpdateInfo": true
   },
   "win": {
     "icon": "public/favicon.png",
@@ -31,19 +52,27 @@
         ]
       }
     ],
-    "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+    "artifactName": "${productName}-Windows-${version}-Setup.${ext}",
+    "publisherName": "MonshinYu"
   },
   "nsis": {
     "oneClick": false,
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
-    "deleteAppDataOnUninstall": false
+    "deleteAppDataOnUninstall": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "DSH Desktop"
   },
   "linux": {
     "icon": "public/favicon.png",
     "target": [
-      "AppImage"
+      "AppImage",
+      "deb"
     ],
-    "artifactName": "${productName}-Linux-${version}.${ext}"
+    "artifactName": "${productName}-Linux-${version}.${ext}",
+    "category": "Development",
+    "synopsis": "Desktop client for @deepseek-ai/dsh",
+    "description": "A community-maintained desktop client for @deepseek-ai/dsh - wrap the dsh Web UI in a native window, no Node.js or Bun required for end users."
   }
 }

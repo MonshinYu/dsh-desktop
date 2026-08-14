@@ -1,0 +1,60 @@
+name: Feature Request
+description: 提议 DSH Desktop 的新特性
+title: '[Feature] '
+labels: ['enhancement', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你的提议！请先描述清楚场景和价值，便于我们评估。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 痛点 / 场景
+      description: 你的提议要解决什么问题？在什么场景下会遇到？
+      placeholder: |
+        当我在 ... 时，需要 ... 
+        但是目前 DSH Desktop 只能 ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 提议的解决方案
+      description: 你期望的交互方式 / UI 表现
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案
+      description: 你考虑过的其他方案，以及为什么选择当前方案
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 草图 / 参考
+      description: 上传 mockup、参考截图、其他作品的设计
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 优先级
+      description: 你认为这个特性对你的使用重要性
+      options:
+        - 'Nice to have - 不影响日常使用'
+        - 'Important - 没有它会很不方便'
+        - 'Critical - 几乎无法正常使用'
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 自检
+      options:
+        - label: 我搜索过现有 Issues 与 PRs，没有重复提议
+        - label: 我愿意为这个特性提交 PR
