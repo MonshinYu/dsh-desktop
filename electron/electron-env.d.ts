@@ -22,5 +22,6 @@ interface Window {
     retry(): Promise<void>
     onStatus(cb: (s: DshStatusShape) => void): () => void
     setTitleBarOverlay(opts: { color: string; symbolColor: string }): void
+    onFullScreenState(cb: (isFullScreen: boolean) => void): () => void
   }
 }

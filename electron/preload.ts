@@ -42,4 +42,14 @@ contextBridge.exposeInMainWorld('api', {
   setTitleBarOverlay: (opts: { color: string; symbolColor: string }) => {
     ipcRenderer.send('dsh:titlebar-overlay', opts)
   },
+
+  onFullScreenState: (cb: (isFullScreen: boolean) => void) => {
+    const listener = (_e: unknown, isFullScreen: unknown) => {
+      cb(Boolean(isFullScreen))
+    }
+    ipcRenderer.on('dsh:fullscreen-state', listener)
+    return () => {
+      ipcRenderer.off('dsh:fullscreen-state', listener)
+    }
+  },
 })

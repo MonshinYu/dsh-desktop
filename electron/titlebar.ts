@@ -41,10 +41,13 @@ const DRAG_REGION_CSS = `
 
 const MAC_CSS = DRAG_REGION_CSS + `
   .hHd-Xa_root {
-    padding-top: 38px !important;
+    padding-top: 50px !important;
   }
   .hHd-Xa_root.hHd-Xa_collapsed {
-    padding-top: 38px !important;
+    padding-top: 50px !important;
+  }
+  html[data-dsh-fullscreen="true"] .hHd-Xa_root {
+    padding-top: 0 !important;
   }
 `
 
@@ -78,6 +81,19 @@ const WEBUI_THEME_SYNC_JS = `
   })()
 `
 
+const WEBUI_FULLSCREEN_SYNC_JS = `
+  (() => {
+    if (window.__dshDesktopFullscreenSync) return
+    window.__dshDesktopFullscreenSync = true
+    const apply = (isFullScreen) => {
+      document.documentElement.dataset.dshFullscreen = isFullScreen ? 'true' : 'false'
+    }
+    if (window.api && typeof window.api.onFullScreenState === 'function') {
+      window.api.onFullScreenState(apply)
+    }
+  })()
+`
+
 let currentWin: BrowserWindow | null = null
 let ipcInstalled = false
 
@@ -103,8 +119,21 @@ export function installTitlebarInjection(win: BrowserWindow): void {
     )
   }
 
+  const pushFullScreenState = () => {
+    if (process.platform !== 'darwin') return
+    if (win.isDestroyed()) return
+    win.webContents.send(
+      'dsh:fullscreen-state',
+      win.isFullScreen(),
+    )
+  }
+  win.on('enter-full-screen', pushFullScreenState)
+  win.on('leave-full-screen', pushFullScreenState)
+  win.on('enter-html-full-screen', pushFullScreenState)
+  win.on('leave-html-full-screen', pushFullScreenState)
   win.webContents.on('dom-ready', () => {
     void injectWebUiChrome(win)
+    setTimeout(pushFullScreenState, 0)
   })
 }
 
@@ -113,6 +142,9 @@ async function injectWebUiChrome(win: BrowserWindow): Promise<void> {
   const css = process.platform === 'darwin' ? MAC_CSS : WIN_CSS
   try {
     await win.webContents.insertCSS(css)
+    if (process.platform === 'darwin') {
+      await win.webContents.executeJavaScript(WEBUI_FULLSCREEN_SYNC_JS)
+    }
     if (process.platform === 'win32') {
       await win.webContents.executeJavaScript(WEBUI_THEME_SYNC_JS)
     }
