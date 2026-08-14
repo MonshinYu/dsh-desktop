@@ -11,7 +11,7 @@ export function windowChromeOptions(
     options.titleBarStyle = 'hidden'
     options.titleBarOverlay = {
       height: TITLEBAR_HEIGHT,
-      color: tokens.bg,
+      color: '#00000000',
       symbolColor: tokens.theme === 'dark'
         ? 'rgba(255, 255, 255, 0.87)'
         : 'rgba(0, 0, 0, 0.75)',
@@ -63,11 +63,8 @@ const WEBUI_THEME_SYNC_JS = `
 
     const apply = () => {
       const dark = document.body.hasAttribute('data-ds-dark-theme')
-      const bg = getComputedStyle(document.documentElement)
-        .getPropertyValue('--dsw-alias-bg-base')
-        .trim()
       window.api.setTitleBarOverlay({
-        color: bg || (dark === false ? '#ffffff' : '#16181d'),
+        color: '#00000000',
         symbolColor: dark === false ? 'rgba(0, 0, 0, 0.75)' : 'rgba(255, 255, 255, 0.87)',
       })
     }

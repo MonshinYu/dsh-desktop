@@ -56,7 +56,7 @@ body {
     -webkit-app-region: drag;
     user-select: none;
     z-index: 100;
-    background-color: var(--splash-bg);
+    background-color: transparent;
 }
 
 body {
