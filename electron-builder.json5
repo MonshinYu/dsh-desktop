@@ -1,15 +1,10 @@
-// @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.deepseek.dsh-desktop",
   "asar": true,
-  // The dsh dependency tree must live on real disk: native addons cannot
-  // dlopen from inside asar, the web frontend is served with real fs reads,
-  // and the CLI itself is forked from app.asar.unpacked (see electron/dsh-server.ts).
   "asarUnpack": [
     "node_modules/**"
   ],
-  // All native deps ship N-API prebuilds; skip electron-builder's toolchain rebuild.
   "npmRebuild": false,
   "productName": "DSH Desktop",
   "directories": {
@@ -19,7 +14,6 @@
     "dist",
     "dist-electron"
   ],
-  // 512x512 PNG; electron-builder converts it to .icns/.ico at build time.
   "mac": {
     "icon": "public/favicon.png",
     "target": [

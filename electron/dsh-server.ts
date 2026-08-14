@@ -10,11 +10,8 @@ const START_TIMEOUT_MS = 30_000
 const FORCE_KILL_MS = 2_000
 const STDERR_TAIL_BYTES = 8192
 
-/** Preferred port for the dsh web server; the next free port is used when busy. */
 const DEFAULT_WEB_PORT = 3080
-/** Scan DEFAULT_WEB_PORT .. DEFAULT_WEB_PORT + PORT_SCAN_LIMIT - 1 for a free port. */
 const PORT_SCAN_LIMIT = 50
-/** Re-probe and rebind this many times if the port is grabbed between probe and bind. */
 const PORT_BIND_RETRIES = 3
 
 export type DshStatus =
@@ -22,11 +19,6 @@ export type DshStatus =
   | { state: 'ready'; url: string }
   | { state: 'error'; message: string; detail?: string }
 
-/**
- * Return the first free TCP port starting at `start` (inclusive), probing
- * with a short listen on 127.0.0.1 — the interface dsh web binds. Ports that
- * cannot be bound (EADDRINUSE, EACCES) count as occupied and are skipped.
- */
 function findFreePort(start: number): Promise<number> {
   return new Promise((resolve, reject) => {
     const attempt = (port: number): void => {
@@ -52,7 +44,6 @@ function findFreePort(start: number): Promise<number> {
   })
 }
 
-// Packaged apps have no reliable stdout; keep a log file for field diagnostics.
 function diagLog(...args: unknown[]) {
   console.log(...args)
   try {
@@ -60,16 +51,9 @@ function diagLog(...args: unknown[]) {
     mkdirSync(dir, { recursive: true })
     appendFileSync(path.join(dir, 'dsh-server.log'), args.map(String).join(' ') + '\n')
   } catch {
-    /* best-effort diagnostics */
   }
 }
 
-/**
- * In the packaged app the whole dependency tree is unpacked from asar
- * (`asarUnpack: node_modules/**`): native addons cannot dlopen from inside
- * asar, and the web frontend dist is served with real fs reads. Replace the
- * exact `app.asar` segment (never matches `app.asar.unpacked` itself).
- */
 function dshBinPath(): string {
   const resolved = createRequire(import.meta.url).resolve('@deepseek-ai/dsh/lib/bin.js')
   if (!app.isPackaged) return resolved
@@ -115,15 +99,6 @@ class DshServer {
     this.set({ state: 'error', message, detail })
   }
 
-  /**
-   * Run the dsh CLI on the app's own Electron binary in pure-Node mode
-   * (ELECTRON_RUN_AS_NODE — the RunAsNode fuse is enabled): end users need no
-   * system Node. Not utilityProcess: in the packaged app its NodeService
-   * silently drops `--expose-internals`, which the dsh loader requires for
-   * its HMR service; pure-Node mode honors it (verified on the packaged
-   * binary). Idempotent: no-op while a start attempt is already in flight (a
-   * spawn or an automatic port retry) and while a child is alive.
-   */
   start(): Promise<void> {
     if (this.startPromise) return this.startPromise
     this.portRetries = 0
@@ -139,8 +114,6 @@ class DshServer {
     this.stderrTail = ''
     this.set({ state: 'starting' })
 
-    // Prefer 3080 (the plain `dsh web` port); when another process — e.g. a
-    // standalone `dsh web` — holds it, fall back to 3081, 3082, ...
     let port: number
     try {
       port = await findFreePort(DEFAULT_WEB_PORT)
@@ -151,14 +124,8 @@ class DshServer {
     }
     diagLog(`[dsh] starting dsh web on port ${port}`)
 
-    // Resolved lazily: app.getPath('userData') is only meaningful after app
-    // startup, and this module must stay safe to import before main.ts runs.
     const dshHome = path.join(app.getPath('userData'), 'dsh')
 
-    // Fork through a tiny wrapper: it watches its stdin pipe and exits when
-    // the pipe closes — i.e. when the parent dies. A plain child_process
-    // child would otherwise orphan and keep serving on its port after an
-    // abrupt parent death (crash, dev-server restart, SIGKILL).
     let wrapperPath: string
     try {
       mkdirSync(dshHome, { recursive: true })
@@ -204,7 +171,6 @@ class DshServer {
     diagLog('[dsh] spawned pid', child.pid)
 
     child.on('error', (err) => {
-      // e.g. the binary cannot be executed at all (no 'exit' follows in that case)
       diagLog('[dsh] child error:', String(err))
       if (this.child !== child) return
       this.child = null
@@ -217,9 +183,7 @@ class DshServer {
       this.child = null
       this.clearTimer()
       if (this.stopping) return
-      if (this.status.state === 'error') return // timeout already reported
-      // The port was grabbed between our probe and dsh's bind: retry on the
-      // next free port instead of surfacing an error.
+      if (this.status.state === 'error') return
       if (
         this.status.state === 'starting' &&
         /EADDRINUSE/i.test(this.stderrTail) &&
@@ -239,9 +203,6 @@ class DshServer {
       }
     })
 
-    // The server prints `dsh web: http://127.0.0.1:<port>` once after it has
-    // bound, echoing the port we selected (or the next free one after a bind
-    // race was retried).
     let buf = ''
     child.stdout?.on('data', (chunk: Buffer) => {
       buf += chunk.toString()
@@ -268,7 +229,6 @@ class DshServer {
       try {
         child.kill()
       } catch {
-        /* already gone */
       }
     }, START_TIMEOUT_MS)
   }
@@ -276,8 +236,6 @@ class DshServer {
   private onUrlLine(url: string) {
     this.clearTimer()
     this.set({ state: 'ready', url })
-    // Belt-and-suspenders: the line is printed after listen, but confirm the
-    // URL actually answers before the renderer navigates to it.
     void this.confirmHttp(url)
   }
 
@@ -293,7 +251,6 @@ class DshServer {
     }
   }
 
-  /** Kill the child (SIGTERM), force-killing after a grace period. Idempotent. */
   stop(): Promise<void> {
     const child = this.child
     if (!child) return Promise.resolve()
@@ -309,7 +266,6 @@ class DshServer {
         try {
           child.kill('SIGKILL')
         } catch {
-          /* already gone */
         }
         finish()
       }, FORCE_KILL_MS)

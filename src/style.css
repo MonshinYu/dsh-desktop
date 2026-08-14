@@ -9,12 +9,6 @@
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* =====================================================================
-   Theme tokens — declared once, switched by data-theme on <html>.
-   The bootstrap script in index.html sets data-theme before paint, so
-   the very first frame already has the right colors. main.ts may upgrade
-   the value once the main process pushes dsh's persisted preference.
-   ===================================================================== */
 :root,
 :root[data-theme="dark"] {
     color-scheme: dark;
@@ -77,12 +71,6 @@ body {
     color: var(--splash-fg);
 }
 
-/* =====================================================================
-   dsh iframe — sits behind the splash and starts loading as soon as the
-   main process reports a ready URL. Until then it shows an empty layer
-   painted with the same background as the splash, so we never expose a
-   blank white frame during the transition.
-   ===================================================================== */
 .dsh-frame {
     position: fixed;
     inset: 0;
@@ -90,15 +78,10 @@ body {
     height: 100vh;
     border: 0;
     background-color: var(--splash-bg);
-    /* Iframe sandbox lets the web UI render normally; we still control
-       the visible area through the splash overlay. */
     z-index: 1;
 }
 
 .dsh-frame.is-loading {
-    /* While dsh is loading we keep the iframe at 0 opacity so its own
-       splash/blank-state doesn't bleed through our splash. Once it
-       finishes loading we fade it in, then dismiss the splash. */
     opacity: 0;
 }
 
@@ -106,22 +89,6 @@ body {
     opacity: 1;
     transition: opacity 0.25s ease-out;
 }
-
-/* ========================================================================
-   Splash / 开屏动画
-   节奏：(单位 s)
-     0.00 → 0.45  背景圆形展开
-     0.30 → 1.30  深色实心圆反扣（mask 收缩）
-     0.40 → 1.40  中心光晕脉冲
-     1.00 → 1.75  logo 舞台缩放淡入
-     1.15 → 2.10  "日" 字形笔画像手绘一样绘出
-     1.55 → 2.10  DEEPSEEK 文字从左滑入
-     1.55 → 2.15  HARNESS 盒子从右滑入
-     1.85 → 2.25  HARNESS 文字揭示
-     1.60 → 2.20  RIJISTUDIO 副标淡入
-     1.90 → 2.90  加载进度条
-     2.80 → 3.25  整体淡出（由 dsh 资源 complete 触发）
-   ======================================================================== */
 
 .splash {
     position: fixed;
@@ -136,7 +103,6 @@ body {
     pointer-events: none;
 }
 
-/* 1. 背景 — 圆形遮罩揭幕（与主题适配的 radial gradient） */
 .splash-bg-reveal {
     position: absolute;
     inset: 0;
@@ -165,7 +131,6 @@ body {
            mask: radial-gradient(circle at 50% 50%, transparent 120vmax, transparent 120vmax, #000 120vmax); }
 }
 
-/* 1.5 中心光晕 */
 .splash-glow {
     position: absolute;
     left: 50%;
@@ -194,7 +159,6 @@ body {
     50%      { transform: translate(-50%, -50%) scale(1.08); opacity: 0.75; }
 }
 
-/* 2. Logo 舞台 */
 .splash-stage {
     position: relative;
     width: 50%;
@@ -216,7 +180,6 @@ body {
     display: block;
 }
 
-/* 2.1 "日" 字形 — 笔画像手绘一样被绘出 */
 #logo-image {
     stroke: var(--splash-fg);
     stroke-width: 0.6;
@@ -235,7 +198,6 @@ body {
     to { fill-opacity: 1; }
 }
 
-/* 2.2 DEEPSEEK 文字 — 整体淡入 */
 #logo-deepseek {
     opacity: 0;
     transform: translateX(-6px);
@@ -249,7 +211,6 @@ body {
     100% { opacity: 1; transform: translateX(0); }
 }
 
-/* 2.3 HARNESS 盒子 — 从右滑入 */
 #logo-harness-box {
     transform: translateX(28px);
     opacity: 0;
@@ -263,7 +224,6 @@ body {
     100% { transform: translateX(0);     opacity: 1; }
 }
 
-/* 2.4 HARNESS 文字 — 跟随盒子揭示 */
 #logo-harness {
     opacity: 0;
     animation: harness-in 0.4s ease-out 1.85s forwards;
@@ -273,7 +233,6 @@ body {
     to { opacity: 1; }
 }
 
-/* 3. 加载进度条 */
 .splash-loader {
     position: absolute;
     bottom: 22%;
@@ -309,7 +268,6 @@ body {
     100% { width: 100%; }
 }
 
-/* 4. 底部小标识 */
 .splash-tagline {
     position: absolute;
     bottom: 14%;
@@ -325,7 +283,6 @@ body {
 
 @keyframes tagline-in { to { opacity: 1; } }
 
-/* 整体淡出收尾 — 由 main.ts 在 dsh 资源加载完成后触发 */
 .splash.is-done {
     animation: splash-fade 0.45s ease-out forwards;
     pointer-events: none;
@@ -336,7 +293,6 @@ body {
     100% { opacity: 0; visibility: hidden; }
 }
 
-/* 用户偏好减少动画时：直接跳到终态 */
 @media (prefers-reduced-motion: reduce) {
     .splash,
     .splash-bg-reveal,

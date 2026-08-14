@@ -5,14 +5,6 @@
     <link rel="icon" type="image/png" href="/favicon.png"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>DSH Desktop</title>
-    <!--
-      Pre-paint theme bootstrap. Runs synchronously before <body> renders, so
-      the splash background never flashes white. Resolution order:
-        1. dsh's persisted preference pushed by the main process via IPC.
-        2. The system color-scheme via prefers-color-scheme.
-      Once main.ts finishes wiring window.api.splashTokens(), it can upgrade
-      to the dsh value with no flash because we only swap data-theme.
-    -->
     <script>
         (function () {
             try {
@@ -35,12 +27,6 @@
 <body>
 <div id="titlebar" aria-hidden="true"></div>
 
-<!--
-  Single-document shell: the splash sits above an iframe that loads the dsh
-  web UI in-place. We start the iframe load as soon as the dsh HTTP port is
-  known, and dismiss the splash only after the iframe has fully rendered —
-  so the user sees splash → dsh-ready with no white frame in between.
--->
 <iframe
     id="dsh-frame"
     class="dsh-frame"
@@ -50,7 +36,6 @@
     sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
 ></iframe>
 
-<!-- Splash / 开屏动画 -->
 <div id="splash" class="splash">
     <div class="splash-bg-reveal"></div>
     <div class="splash-glow"></div>

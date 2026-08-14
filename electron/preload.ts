@@ -1,6 +1,5 @@
 import { ipcRenderer, contextBridge } from 'electron'
 
-// --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
   on(...args: Parameters<typeof ipcRenderer.on>) {
     const [channel, listener] = args
@@ -18,12 +17,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     const [channel, ...omit] = args
     return ipcRenderer.invoke(channel, ...omit)
   },
-
-  // You can expose other APTs you need here.
-  // ...
 })
 
-// --------- dsh server status API for the splash page ---------
 contextBridge.exposeInMainWorld('api', {
   platform: process.platform,
   getServerStatus: () => ipcRenderer.invoke('dsh:get-status'),
@@ -36,17 +31,6 @@ contextBridge.exposeInMainWorld('api', {
     }
   },
 
-  /**
-   * Splash-time theme tokens resolved by the main process BEFORE the renderer
-   * paints, so the splash picks colors without a flash:
-   *   - theme: 'dark' | 'light' (dsh's persisted preference, falling back to
-   *            nativeTheme.shouldUseDarkColors).
-   *   - bg / fg: matching background and foreground colors the renderer can
-   *            apply to <html style> on its very first frame — eliminating the
-   *            white frame Chromium shows when backgroundColor isn't set on
-   *            the BrowserWindow.
-   * Cached because nativeTheme events arrive via the same channel.
-   */
   splashTokens: (() => {
     let cached: { theme: 'dark' | 'light'; bg: string; fg: string } | null = null
     ipcRenderer.on('dsh:splash-tokens', (_e, t) => {
@@ -55,7 +39,6 @@ contextBridge.exposeInMainWorld('api', {
     return () => cached
   })(),
 
-  // Windows only: recolor the Window Controls Overlay to match the web UI theme.
   setTitleBarOverlay: (opts: { color: string; symbolColor: string }) => {
     ipcRenderer.send('dsh:titlebar-overlay', opts)
   },
