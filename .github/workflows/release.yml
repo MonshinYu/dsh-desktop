@@ -1,22 +1,105 @@
-name: Build Release
+name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'electron/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'electron-builder.json5'
+      - 'public/**'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
-      publish:
-        description: 'Publish to GitHub Releases'
+      version_bump:
+        description: 'Version bump type (only for manual run)'
         required: false
-        default: 'false'
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  bump:
+    name: Bump version & push tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build renderer (smoke test)
+        run: npx vite build
+
+      - name: Determine bump type
+        id: bump_type
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "bump=${{ inputs.version_bump }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "bump=patch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+      - name: Bump version
+        id: bump
+        run: |
+          set -euo pipefail
+          BUMP="${{ steps.bump_type.outputs.bump }}"
+          CURRENT=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT"
+          npm version "$BUMP" --no-commit-hooks -m "chore(release): v%s [skip ci]"
+          NEW=$(node -p "require('./package.json').version")
+          echo "New version: $NEW"
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Push version bump back to main
+        run: git push origin HEAD:main
+
+      - name: Push tag
+        run: |
+          TAG="${{ steps.bump.outputs.tag }}"
+          git push origin "refs/tags/$TAG"
+
   build:
     name: Build (${{ matrix.os }})
+    needs: bump
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -27,6 +110,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump.outputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,16 +119,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-latest'
-        run: npm ci
-
-      - name: Install dependencies (Windows)
-        if: matrix.os == 'windows-latest'
-        run: npm ci
-
-      - name: Install dependencies (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install dependencies
         run: npm ci
 
       - name: TypeScript type check
@@ -103,9 +179,8 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [bump, build]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
     permissions:
       contents: write
@@ -113,6 +188,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump.outputs.tag }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -125,9 +202,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: DSH Desktop ${{ github.ref_name }}
-          draft: true
+          tag_name: ${{ needs.bump.outputs.tag }}
+          name: DSH Desktop ${{ needs.bump.outputs.version }}
+          draft: false
           generate_release_notes: true
           files: |
             artifacts/**/*.dmg
