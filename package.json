@@ -49,7 +49,8 @@
     "electron": "^43.4.0",
     "electron-builder": "^24.13.3",
     "vite-plugin-electron": "^0.28.6",
-    "vite-plugin-electron-renderer": "^0.14.5"
+    "vite-plugin-electron-renderer": "^0.14.5",
+    "esbuild": "^0.27.0"
   },
   "main": "dist-electron/main.js",
   "dependencies": {
