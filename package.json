@@ -1,7 +1,7 @@
 {
   "name": "dsh-desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A community-maintained desktop client for @deepseek-ai/dsh - wrap the dsh Web UI in a native window, no Node.js or Bun required for end users.",
   "type": "module",
   "author": {
