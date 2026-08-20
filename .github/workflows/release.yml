@@ -1,0 +1,251 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 v0.1.0）'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        working-directory: .
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux-x64
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
+
+          - label: macos-x64
+            os: macos-13
+            target: x86_64-apple-darwin
+            bundles: dmg
+
+          - label: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            bundles: dmg
+
+          - label: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xdg-utils
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Download runtime
+        run: bun run clone:runtime -- ${{ matrix.target }}
+
+      - name: Build Tauri app
+        shell: bash
+        run: |
+          bun tauri build \
+            --target ${{ matrix.target }} \
+            --bundles ${{ matrix.bundles }}
+
+      - name: Prepare release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUNDLE_DIR="src-tauri/target/${{ matrix.target }}/release/bundle"
+          RELEASE_DIR="release"
+
+          mkdir -p "$RELEASE_DIR"
+
+          FOUND=0
+
+          case "${{ matrix.label }}" in
+            linux-x64)
+              for f in "$BUNDLE_DIR"/deb/*.deb; do
+                if [ -f "$f" ]; then
+                  cp "$f" "$RELEASE_DIR/dsh-linux-x64.deb"
+                  FOUND=$((FOUND + 1))
+                fi
+              done
+              for f in "$BUNDLE_DIR"/appimage/*.AppImage; do
+                if [ -f "$f" ]; then
+                  cp "$f" "$RELEASE_DIR/dsh-linux-x64.AppImage"
+                  FOUND=$((FOUND + 1))
+                fi
+              done
+              ;;
+            macos-x64)
+              for f in "$BUNDLE_DIR"/dmg/*.dmg; do
+                if [ -f "$f" ]; then
+                  cp "$f" "$RELEASE_DIR/dsh-macos-x64.dmg"
+                  FOUND=$((FOUND + 1))
+                fi
+              done
+              ;;
+            macos-arm64)
+              for f in "$BUNDLE_DIR"/dmg/*.dmg; do
+                if [ -f "$f" ]; then
+                  cp "$f" "$RELEASE_DIR/dsh-macos-arm64.dmg"
+                  FOUND=$((FOUND + 1))
+                fi
+              done
+              ;;
+            windows-x64)
+              for f in "$BUNDLE_DIR"/nsis/*.exe; do
+                if [ -f "$f" ]; then
+                  cp "$f" "$RELEASE_DIR/dsh-windows-x64.exe"
+                  FOUND=$((FOUND + 1))
+                fi
+              done
+              ;;
+          esac
+
+          if [ "$FOUND" -eq 0 ]; then
+            echo "ERROR: No artifacts found in $BUNDLE_DIR"
+            ls -la "$BUNDLE_DIR"/
+            exit 1
+          fi
+
+          echo "========================================"
+          echo "Release artifacts prepared ($FOUND file(s)):"
+          echo "========================================"
+          ls -la "$RELEASE_DIR/"
+          echo "========================================"
+
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-${{ matrix.label }}
+          path: release/
+
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: dsh-*
+          merge-multiple: true
+
+      - name: Verify release assets
+        run: |
+          set -euo pipefail
+
+          COUNT=$(find release-assets -type f | wc -l)
+
+          echo "Found $COUNT release asset(s)"
+
+          echo "========================================"
+          echo "Release assets:"
+          echo "========================================"
+          find release-assets -type f -print
+          echo "========================================"
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "ERROR: No release assets found!"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.version }}"
+          VERSION="${TAG#v}"
+
+          echo "Creating GitHub Release: $TAG"
+
+          gh release create "$TAG" \
+            --title "v$VERSION" \
+            --generate-notes
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TAG="${{ github.event.inputs.version }}"
+
+          echo "Uploading release assets for $TAG..."
+
+          for artifact in release-assets/*; do
+            if [ -f "$artifact" ]; then
+              echo "Uploading: $artifact"
+              gh release upload "$TAG" "$artifact" --clobber
+            fi
+          done
+
+          echo ""
+          echo "========================================"
+          echo "Assets uploaded to release $TAG:"
+          echo "========================================"
+          gh release view "$TAG" --json assets --jq '.assets[].name'
+
+          echo "========================================"
+          echo "Release assets uploaded successfully."
