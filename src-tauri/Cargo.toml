@@ -1,0 +1,28 @@
+[package]
+name = "dsh-desktop"
+version = "0.1.1"
+description = "DeepSeek Harness Desktop"
+authors = ["MonshinYu <MonshinYu@Gmail.com>"]
+license = "MIT"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [ "tray-icon", "image-png", "image-ico"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rand = "0.10.2"
+reqwest = "0.13.4"
+resvg = "0.45"
+usvg = { version = "0.45", default-features = false }
+tiny-skia = "0.11"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
