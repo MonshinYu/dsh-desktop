@@ -92,24 +92,6 @@ const outputPath = join(runtimePath, outputName);
 
 const downloadUrl = `https://github.com/${REPO}/releases/download/${tag}/${assetName}`;
 
-const headOutput = await curl([
-    "curl",
-    "-fsSL",
-    "-I",
-    "-X",
-    "HEAD",
-    downloadUrl,
-]);
-
-let contentLength = 0;
-for (const line of headOutput.split("\n")) {
-    const m = line.match(/^content-length:\s*(\d+)/i);
-    if (m) contentLength = Number(m[1]);
-}
-
-if (contentLength > 0) {
-    console.log(`[download_runtime] 文件大小: ${(contentLength / 1024 / 1024).toFixed(1)} MB`);
-}
 console.log(`[download_runtime] 下载中: ${downloadUrl}`);
 
 await curl(
@@ -132,10 +114,4 @@ if (process.platform !== "win32") {
 }
 
 const {size} = await stat(outputPath);
-
-if (contentLength > 0 && size !== contentLength) {
-    throw new Error(
-        `下载不完整: 期望 ${contentLength} bytes, 实际 ${size} bytes`,
-    );
-}
 console.log(`[download_runtime] 下载完成: ${(size / 1024 / 1024).toFixed(1)} MB`);
