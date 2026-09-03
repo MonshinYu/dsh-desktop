@@ -51,24 +51,21 @@ const runtimePath = join(rootPath, "runtime");
 await rm(runtimePath, {recursive: true, force: true});
 await mkdir(runtimePath, {recursive: true});
 
-async function curl(args: string[], inheritStdout = false): Promise<string> {
+async function spawnCurl(args: string[]): Promise<{stdout: string; stderr: string; code: number}> {
     const proc = Bun.spawn(args, {
-        stdout: inheritStdout ? "inherit" : "pipe",
+        stdout: "pipe",
         stderr: "pipe",
     });
     const [stdout, stderr, code] = await Promise.all([
-        inheritStdout ? Promise.resolve("") : new Response(proc.stdout).text(),
+        new Response(proc.stdout).text(),
         new Response(proc.stderr).text(),
         proc.exited,
     ]);
-    if (code !== 0) {
-        throw new Error(`curl 退出码 ${code}\n${stderr.trim()}`);
-    }
-    return stdout;
+    return {stdout, stderr, code: code as number};
 }
 
 const effectiveUrl = (
-    await curl([
+    await spawnCurl([
         "curl",
         "-fsSL",
         "-o",
@@ -77,7 +74,7 @@ const effectiveUrl = (
         "%{url_effective}",
         `https://github.com/${REPO}/releases/latest`,
     ])
-).trim();
+).stdout.trim();
 
 const tagMatch = effectiveUrl.match(/\/releases\/tag\/(.+?)\s*$/);
 if (!tagMatch) {
@@ -92,20 +89,105 @@ const outputPath = join(runtimePath, outputName);
 
 const downloadUrl = `https://github.com/${REPO}/releases/download/${tag}/${assetName}`;
 
+// 获取文件大小（通过 GitHub API 获取，避免 CDN 重定向丢失 content-length）
+let contentLength = 0;
+try {
+    const apiUrl = `https://api.github.com/repos/${REPO}/releases/tags/${tag}`;
+    const {stdout, code} = await spawnCurl([
+        "curl",
+        "-fsSL",
+        "-H",
+        "Accept: application/vnd.github+json",
+        "-o",
+        "/dev/null",
+        "-w",
+        "%{http_code}:%{size_download}",
+        apiUrl,
+    ]);
+    const [statusCode, sizeStr] = stdout.trim().split(":");
+    if (statusCode === "200" && sizeStr) {
+        // 下载的是 JSON 元数据，大小很小，直接用它作为 total size
+        // 我们需要从 release assets 中找到对应的 asset 大小
+    }
+} catch {
+    // 忽略
+}
+
+// 使用 GitHub API 获取 assets 元数据来获取文件大小
+try {
+    const apiUrl = `https://api.github.com/repos/${REPO}/releases/tags/${tag}`;
+    const {stdout: jsonStr, code} = await spawnCurl([
+        "curl",
+        "-fsSL",
+        "-H",
+        "Accept: application/vnd.github+json",
+        apiUrl,
+    ]);
+    if (code === 0) {
+        const release = JSON.parse(jsonStr);
+        const asset = release.assets?.find((a: {name: string}) => a.name === assetName);
+        if (asset?.size) {
+            contentLength = asset.size;
+        }
+    }
+} catch {
+    // 忽略
+}
+
+const totalMB = contentLength > 0 ? ` / ${(contentLength / 1024 / 1024).toFixed(1)} MB` : "";
 console.log(`[download_runtime] 下载中: ${downloadUrl}`);
 
-await curl(
-    [
-        "curl",
-        "-fL",
-        "--progress-bar",
-        "-o",
-        outputPath,
-        downloadUrl,
-    ],
-    true,
-);
+// 带进度条的下载
+function renderProgress(downloaded: number): void {
+    const downloadedMB = (downloaded / 1024 / 1024).toFixed(1);
+    if (contentLength > 0) {
+        const barWidth = 24;
+        const percent = Math.min(downloaded / contentLength, 1);
+        const filled = Math.round(percent * barWidth);
+        const empty = barWidth - filled;
+        const bar = "█".repeat(filled) + "░".repeat(empty);
+        const totalMB = (contentLength / 1024 / 1024).toFixed(1);
+        process.stdout.write(`\r[download_runtime] [${bar}] ${(percent * 100).toFixed(1)}% (${downloadedMB} / ${totalMB} MB)`);
+    } else {
+        process.stdout.write(`\r[download_runtime] 已下载 ${downloadedMB} MB...`);
+    }
+}
 
+let downloadedBytes = 0;
+let lastProgressUpdate = 0;
+
+const downloadProc = Bun.spawn(["curl", "-fL", "-o", "-", downloadUrl], {
+    stdout: "pipe",
+    stderr: "pipe",
+});
+
+// 实时读取下载流并写入文件
+const fileHandle = await Bun.file(outputPath).writer();
+const reader = (downloadProc.stdout as ReadableStream<Uint8Array>).getReader();
+
+while (true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    downloadedBytes += value.length;
+    await fileHandle.write(value);
+    const now = Date.now();
+    if (now - lastProgressUpdate > 300) {
+        lastProgressUpdate = now;
+        renderProgress(downloadedBytes);
+    }
+}
+
+reader.releaseLock();
+await fileHandle.end();
+
+const exitCode = await downloadProc.exited;
+if (exitCode !== 0) {
+    const {stderr} = await spawnCurl(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", downloadUrl]);
+    throw new Error(`curl 退出码 ${exitCode}\n${stderr}`);
+}
+
+renderProgress(downloadedBytes);
+process.stdout.write("\n");
 console.log(`[download_runtime] 已保存: ${outputPath}`);
 
 if (process.platform !== "win32") {
